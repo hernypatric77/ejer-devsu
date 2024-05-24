@@ -1,0 +1,86 @@
+version: "3.9"
+services:
+  db:
+    image: postgres
+    container_name: postgressql_cartera
+    ports:
+      - "5431:5432"
+    networks:
+      - mi_red
+    environment:
+      - POSTGRES_DB=dockerizandoDB
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=root
+    volumes:
+      - C:\\postgres_datapart:/var/lib/postgresql/data
+    restart: always
+
+  eureka:
+    build: ./microservicios-eureka
+    container_name: testapp_eureka
+    ports:
+      - "8761:8761"
+    networks:
+      - mi_red
+    environment:
+      - eureka.client.register-with-eureka=false
+      - eureka.client.fetch-registry=false
+    restart: always
+  cliente:
+    build: ./microservicio-usurios
+    container_name: testapp-cliente
+    ports:
+      - "8087:8087"
+    networks:
+      - mi_red
+    environment:
+      - spring.application.name=microservicios-usuarios
+      - server.port=8087
+      - DATABASE_URL=jdbc:postgresql://db:5432/dockerizandoDB
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=root
+      - eureka.client.service-url.defaultZone=http://eureka:8761/eureka/
+    depends_on:
+      - db
+      - eureka
+    restart: always
+  cartera:
+    build: ./microservicio-cartera
+    container_name: testapp-cartera
+    ports:
+      - "8085:8085"
+    networks:
+      - mi_red
+    environment:
+      - spring.application.name=microservicios-cartera
+      - server.port=8085
+      - DATABASE_URL=jdbc:postgresql://db:5432/dockerizandoDB
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=root
+      - eureka.client.service-url.defaultZone=http://eureka:8761/eureka/
+    depends_on:
+      - db
+      - eureka
+    restart: always
+
+  zuul:
+    build: ./microservicio-zuul
+    container_name: testapp_zuul
+    ports:
+      - "8090:8090"
+    networks:
+      - mi_red
+    environment:
+      - zuul.routes.cartera.path=/**
+      - zuul.routes.cartera.url=http://testapp-cartera:8085
+      - zuul.routes.cliente.path=/cliente/**
+      - zuul.routes.cliente.url=http://testapp-cliente:8087
+      - eureka.client.service-url.defaultZone=http://eureka:8761/eureka/
+    depends_on:
+      - eureka
+    restart: always
+
+networks:
+  mi_red:
+    external:
+      name: mi_red
